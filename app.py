@@ -39,6 +39,7 @@ from modules.visualization import (
 from modules.anomaly_detection import detect_anomalies
 from modules.ai_report import generate_ai_report, generate_context_for_qa
 from modules.qa_agent import answer_business_question
+from config.prompts import PROMPT_CONFIG, REPORTER_REPORT_PROMPT, FUNCTION_CALLING_TOOLS
 from utils.helpers import format_number, format_percent, safe_divide, check_api_key
 
 
@@ -805,6 +806,83 @@ with tabs[6]:
                     st.error(answer)
 
                 st.rerun()
+
+
+# ======================================================
+# Tab 8: 多 Agent 流水线
+# ======================================================
+tabs_agent = st.tabs([""])[0]  # 占位，实际我们手动管理
+# 用 expander 方式展示在 AI 报告 Tab 后面
+with tabs[5]:  # 在 AI 报告 Tab 底部增加 Agent 模式
+    pass
+
+# 在 AI 问数 Tab 后面加一个独立区域
+st.markdown("---")
+st.markdown("### 🤖 Agent 协作流水线（进阶模式）")
+with st.expander("点击展开 Agent 流水线（Analyser → Reporter → Critic）", expanded=False):
+    st.markdown("""
+    **多 Agent 协作流程：**
+    1. **Analyser（数据分析师）**：分析数据，支持 Function Calling 工具调用
+    2. **Reporter（报告撰写师）**：基于分析结果生成结构化报告
+    3. **Critic（质量评审师）**：对报告进行评分和改进建议
+    """)
+
+    if st.session_state.anomalies is None:
+        st.info("请先在「字段映射与数据清洗」Tab 中完成数据处理。")
+    elif not st.session_state.ai_available:
+        st.warning("⚠️ 需要配置 API Key 才能运行 Agent 流水线。")
+    else:
+        agent_question = st.text_input(
+            "输入分析问题（Agent 将自动调用工具分析数据并生成报告）：",
+            placeholder="例如：请分析整体经营情况，重点关注异常...",
+            key="agent_pipeline_input",
+        )
+        if st.button("🚀 运行完整 Agent 流水线", type="primary", width="stretch"):
+            with st.spinner("正在依次执行 Analyser → Reporter → Critic..."):
+                from core.multi_agent import run_multi_agent_pipeline
+                question = agent_question.strip() or "请分析整体经营情况"
+                success, result_data = run_multi_agent_pipeline(
+                    df=st.session_state.cleaned_df,
+                    field_mapping=st.session_state.field_mapping,
+                    user_question=question,
+                )
+
+                if success:
+                    outputs = result_data.get("stage_outputs", {})
+
+                    # Analyser 输出
+                    analyser_out = outputs.get("Analyser", {})
+                    st.success("✅ Analyser 分析完成")
+                    if analyser_out.get("success"):
+                        with st.expander("📊 Analyser 分析结果", expanded=False):
+                            st.markdown(analyser_out.get("answer", "无输出"))
+
+                    # Reporter 输出
+                    reporter_out = outputs.get("Reporter", {})
+                    if reporter_out.get("success"):
+                        st.success("✅ Reporter 报告生成完成")
+                        report_text = reporter_out.get("report", "")
+                        st.session_state.last_report = report_text
+                        with st.expander("📄 Reporter 经营分析报告", expanded=True):
+                            st.markdown(report_text)
+                    else:
+                        st.warning(f"Reporter 报告生成失败: {reporter_out.get('report', '')}")
+
+                    # Critic 输出
+                    critic_out = outputs.get("Critic", {})
+                    if critic_out.get("success"):
+                        st.success("✅ Critic 质量评审完成")
+                        with st.expander("📝 Critic 质量评分与改进建议", expanded=True):
+                            st.markdown(critic_out.get("critique", "无输出"))
+                else:
+                    error_info = result_data.get("error", "未知错误")
+                    st.error(f"Agent 流水线执行失败：{error_info}")
+                    stage_outputs = result_data.get("stage_outputs", {})
+                    if stage_outputs:
+                        with st.expander("查看已完成的阶段输出"):
+                            for sname, sout in stage_outputs.items():
+                                st.markdown(f"**{sname}**")
+                                st.markdown(str(sout.get("answer", sout.get("report", sout.get("critique", "无"))))[:500])
 
 
 # ============ 辅助函数 ============

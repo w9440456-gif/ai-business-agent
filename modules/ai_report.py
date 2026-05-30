@@ -1,7 +1,13 @@
-"""AI 经营分析报告生成模块"""
+"""
+AI 经营分析报告生成模块
+========================
+通过 Reporter Agent 生成结构化经营分析报告。
+prompt 管理统一在 config/prompts.py 中。
+"""
 
 import os
 from dotenv import load_dotenv
+from config.prompts import REPORTER_SYSTEM_PROMPT, REPORTER_REPORT_PROMPT, PROMPT_CONFIG
 
 
 def _get_client():
@@ -14,73 +20,9 @@ def _get_client():
     return OpenAI(api_key=api_key)
 
 
-def _build_prompt(metrics_summary, aggregates_summary, anomalies):
-    """构建大模型 prompt"""
-    prompt = f"""你是一位资深电商经营分析师。请基于以下数据摘要，撰写一份专业的经营分析报告。
-
-要求：
-1. 报告语言：专业、简洁的中文
-2. 不要编造数据，所有结论必须基于提供的指标
-3. 如果某些指标缺失，明确说明"该指标当前数据不足，无法分析"
-4. 结构完整，逻辑清晰
-5. 对发现的异常给出可行的改进建议
-6. 报告长度建议 800-1200 字
-
-========== 经营指标摘要 ==========
-{metrics_summary}
-
-========== 聚合数据摘要 ==========
-{aggregates_summary}
-
-========== 异常检测结果 ==========
-{anomalies}
-
-========== 报告结构要求 ==========
-请按以下结构撰写：
-
-一、整体经营概况
-- 本期内整体经营表现概述
-- 核心指标完成情况
-
-二、销售趋势分析
-- 本期销售整体走势
-- 是否存在季节性波动或异常波动
-
-三、品类表现分析
-- 各品类销售贡献度
-- 品类健康度评估
-
-四、平台表现分析
-- 各平台销售贡献
-- 重点平台表现
-
-五、推广 ROI 分析
-- 投放效率评估
-- 渠道优化方向
-
-六、退款与售后风险分析
-- 退款率表现
-- 高风险品类提示
-
-七、核心异常问题
-- 逐条说明检测到的异常
-- 影响程度评估
-
-八、经营优化建议
-- 短期可执行措施
-- 中长期策略建议
-
-九、下阶段重点关注指标
-- 建议重点监控的 3-5 个指标
-
-请开始撰写报告："""
-
-    return prompt
-
-
 def generate_ai_report(metrics_summary, aggregates_summary, anomalies):
     """
-    使用 OpenAI API 生成经营分析报告。
+    使用 Reporter Agent 生成经营分析报告。
 
     参数:
         metrics_summary: str — 指标摘要文本
@@ -91,27 +33,41 @@ def generate_ai_report(metrics_summary, aggregates_summary, anomalies):
         success: bool
         result: str — 报告文本或错误信息
     """
-    # 加载 API Key
     load_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model = os.getenv("OPENAI_MODEL", "deepseek-chat")
 
     if not api_key or api_key == "your_api_key_here":
-        return False, "请先配置 OPENAI_API_KEY（在 .env 文件中），即可生成 AI 经营分析报告。"
+        return False, "请先配置 API Key（在 .env 文件中），即可生成 AI 经营分析报告。"
+
+    # 将异常列表转为文本
+    if isinstance(anomalies, list):
+        anomalies_text = "\n".join(
+            [f"- [{a.get('severity', '未知')}] {a.get('type', '未知')}: {a.get('description', '')}"
+             for a in anomalies]
+        )
+    else:
+        anomalies_text = str(anomalies)
+
+    # 从配置文件读取 prompt
+    prompt = REPORTER_REPORT_PROMPT["prompt"].format(
+        metrics_summary=metrics_summary,
+        aggregates_summary=aggregates_summary,
+        anomalies=anomalies_text,
+    )
 
     try:
         client = _get_client()
-
-        prompt = _build_prompt(metrics_summary, aggregates_summary, anomalies)
+        config = PROMPT_CONFIG
 
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "你是一位资深的电商经营数据分析师，擅长撰写专业、结构清晰的经营分析报告。"},
+                {"role": "system", "content": REPORTER_SYSTEM_PROMPT["prompt"]},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
-            max_tokens=4000,
+            temperature=config["report_temperature"],
+            max_tokens=config["report_max_tokens"],
         )
 
         report = response.choices[0].message.content
@@ -131,7 +87,6 @@ def generate_ai_report(metrics_summary, aggregates_summary, anomalies):
 
 def generate_context_for_qa(metrics_summary, aggregates_summary, anomalies, field_mapping):
     """为问数助手构建上下文"""
-    # 获取字段映射信息
     field_info = {}
     for std_field, original_col in field_mapping.items():
         if original_col:
@@ -149,6 +104,5 @@ def generate_context_for_qa(metrics_summary, aggregates_summary, anomalies, fiel
 
 【异常检测结果】
 {anomalies}
-
 """
     return context

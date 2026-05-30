@@ -16,3 +16,7 @@ venv/
 
 # 生成脚本（用户数据生成用，非必须上传）
 data/generate_sample_data.py
+
+# 新模块缓存
+core/__pycache__/
+config/__pycache__/
