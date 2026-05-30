@@ -210,7 +210,7 @@ with tabs[0]:
         st.write(f"数据量：{len(df)} 行 × {len(df.columns)} 列")
 
         # 显示前 10 行
-        st.dataframe(df.head(10), width="stretch")
+        st.dataframe(df.head(10))
 
         # 数据基本信息
         with st.expander("查看数据基本信息"):
@@ -225,7 +225,7 @@ with tabs[0]:
                 st.write("**数值字段统计**")
                 numeric_cols = df.select_dtypes(include=["number"]).columns
                 if len(numeric_cols) > 0:
-                    st.dataframe(df[numeric_cols].describe(), width="stretch")
+                    st.dataframe(df[numeric_cols].describe())
                 else:
                     st.write("未检测到数值字段")
 
@@ -357,7 +357,7 @@ with tabs[1]:
 
             # 清洗后数据预览
             with st.expander("查看清洗后的数据"):
-                st.dataframe(st.session_state.cleaned_df.head(10), width="stretch")
+                st.dataframe(st.session_state.cleaned_df.head(10))
 
 
 # ======================================================
@@ -585,19 +585,19 @@ with tabs[4]:
 
         with tab_d:
             if st.session_state.date_agg is not None and not st.session_state.date_agg.empty:
-                st.dataframe(st.session_state.date_agg, width="stretch")
+                st.dataframe(st.session_state.date_agg)
             else:
                 st.info("暂无按日期汇总数据")
 
         with tab_c:
             if st.session_state.cat_agg is not None and not st.session_state.cat_agg.empty:
-                st.dataframe(st.session_state.cat_agg, width="stretch")
+                st.dataframe(st.session_state.cat_agg)
             else:
                 st.info("暂无按品类汇总数据")
 
         with tab_p:
             if st.session_state.plat_agg is not None and not st.session_state.plat_agg.empty:
-                st.dataframe(st.session_state.plat_agg, width="stretch")
+                st.dataframe(st.session_state.plat_agg)
             else:
                 st.info("暂无按平台汇总数据")
 
