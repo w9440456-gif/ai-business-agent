@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 环境变量（API Key）
+.env
+
+# macOS
+.DS_Store
+
+# Streamlit
+.streamlit/
+
+# 生成脚本（用户数据生成用，非必须上传）
+data/generate_sample_data.py
