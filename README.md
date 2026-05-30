@@ -28,7 +28,7 @@
 | 数据上传与预览 | <img src="images/data_upload.png" width="100%"> |
 | 字段映射与数据清洗 | <img src="images/field_mapping.png" width="100%"> |
 | 核心指标看板 | <img src="images/metrics_dashboard.png" width="100%"> |
-| 可视化分析 | <img src="images/visualization.png" width="100%"> |
+| 可视化分析 | <img src="images/visualization1.png" width="100%"> |
 | 异常识别 | <img src="images/anomaly_detection.png" width="100%"> |
 | AI 经营分析报告 | <img src="images/ai_report.png" width="100%"> |
 
@@ -40,7 +40,7 @@
 | 前端框架 | Streamlit | 交互式 Web 应用 |
 | 数据处理 | Pandas / NumPy | 数据清洗与指标计算 |
 | 可视化 | Plotly | 交互式图表（7 种） |
-| AI 接口 | OpenAI SDK | 报告生成 / 自然语言问答 |
+| AI Agent 引擎 | openai SDK + Function Calling | 多 Agent 协作（Analyser → Reporter → Critic） |
 | 办公文档 | python-docx | Word 报告导出 |
 | 文件解析 | openpyxl | Excel 文件支持 |
 | 环境管理 | python-dotenv | API Key 配置 |
@@ -197,6 +197,25 @@ OPENAI_BASE_URL=https://api.deepseek.com/v1
 - 有 API Key 并生成 AI 报告后：导出含 AI 分析章节的完整报告
 - 报告格式：.docx，可直接打印或作为周报附件
 
+### 9. 多 Agent 协作流水线（进阶）
+
+在 AI 报告 Tab 底部提供「Agent 协作流水线」展开面板，一键运行完整的三 Agent 流程：
+
+| Agent | 角色 | 能力 |
+|-------|------|------|
+| **Analyser** | 数据分析师 | 理解用户问题，通过 Function Calling 调用 5 个数据工具获取信息后回答 |
+| **Reporter** | 报告撰写师 | 基于分析结果生成 9 章节结构化经营分析报告 |
+| **Critic** | 质量评审师 | 从数据准确性、逻辑清晰度、洞察深度、建议可行性、表达专业性 5 个维度评分并给出改进建议 |
+
+**Function Calling 工具列表：**
+- `get_metric_value` — 查询核心指标
+- `get_category_data` — 按品类查询数据
+- `get_platform_data` — 按平台查询数据
+- `get_anomalies` — 查询异常列表
+- `get_top_products` — 查询 Top N 商品
+
+Analyser 在对话中可以多次调用工具，AI 根据用户的追问自行决定是否需要查询新数据，而不是一次把所有数据塞进上下文。
+
 ---
 
 ## 面试讲解思路
@@ -325,12 +344,41 @@ Python、Streamlit、Pandas、Plotly、OpenAI API、数据分析、经营分析�
 
 ## 项目文件说明
 
-- `app.py` — 主程序，Streamlit 7 Tab 页面
-- `modules/` — 9 个功能模块，每个模块职责单一，可独立测试
+- `app.py` — 主程序，Streamlit 7+1 Tab 页面
+- `config/prompts.py` — Prompt 配置管理（带版本号和设计说明）
+- `core/agent_engine.py` — Agent 核心引擎（统一 LLM 调用 + Function Calling 工具执行）
+- `core/multi_agent.py` — 多 Agent 流水线（Analyser → Reporter → Critic）
+- `modules/` — 10 个功能模块，每个模块职责单一，可独立测试
 - `utils/helpers.py` — 通用工具函数（数字格式化、安全除法等）
 - `data/sample_ecommerce_data.csv` — 1000 行样例数据，含 7 类经营异常
 - `data/standard_template.csv` — 标准字段模板
-- `requirements.txt` — Python 依赖（共 8 个包）
+- `images/` — README 展示用截图
+- `requirements.txt` — Python 依赖
+
+## 核心架构设计
+
+```text
+┌─────────────────────────────────────────────┐
+│             多 Agent 流水线                     │
+│                                               │
+│  Analyser  ──→  Reporter  ──→  Critic         │
+│  (数据分析师)    (报告撰写师)    (质量评审师)       │
+│                                               │
+│  ├ Function Calling       ├ 生成结构化报告   ├ 5维度评分     │
+│  │ 5个数据查询工具        │ 9个章节          │ 改进建议      │
+│  └ get_metric / get_     └ 800-1200字       └ 是否重生成    │
+│     category / get_                             │
+│     platform / get_                             │
+│     anomalies / get_top_products                │
+└─────────────────────────────────────────────┘
+```
+
+**设计原则：**
+
+1. **Prompt 统一管理**：所有 prompt 放在 `config/prompts.py` 中，每段 prompt 都有版本号和设计说明，方便调优和回溯
+2. **Agent 职责分离**：Analyser 负责理解和查询数据，Reporter 负责生成报告，Critic 负责质量把关，各司其职
+3. **工具调用**：Analyser 支持 Function Calling，可自动调用 `get_metric_value`、`get_category_data` 等 5 个工具获取数据，无需在 prompt 中硬编码全部数据
+4. **流水线数据传递**：前一 Agent 的输出自动注入后一 Agent 的上下文，保证信息不丢失
 
 ---
 
